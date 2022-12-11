@@ -5,7 +5,6 @@ from sparseinst import add_sparse_inst_config
 from detectron2.engine import DefaultPredictor
 import torch
 import numpy as np
-import os
 
 
 def setup(args):
@@ -38,22 +37,30 @@ if __name__ == '__main__':
     src = '/media/palm/Data/traffy_data/flood'
     dst = '/media/palm/Data/traffy_data/output'
 
-    # image = cv2.imread('/media/palm/Data/traffy_data/flood/00000/df3284d88bc91cdc5f4965a0a4d8a39a7d1c2336.jpg')
-    # with torch.no_grad():
-    #     outputs = predictor(image)
-    # mask = outputs['instances']._fields['pred_masks'][0].cpu().numpy().astype('uint8')
-    # m = np.where(mask[..., None], (0, 0, 252), image).astype('uint8')
-    # cropped = cv2.addWeighted(image, 0.5, m, 0.5, 0)
-    # cv2.imshow('a', cropped)
-    # cv2.waitKey()
+    ims = ["/media/palm/BiggerData/Flood/bkk/310452208_420364323605056_5490563038462296835_n.jpg",
+           "/media/palm/BiggerData/Flood/bkk/310775733_420364070271748_3763221270241511545_n.jpg",
+           "/media/palm/BiggerData/Flood/bkk/310384936_420364446938377_9000783381814780377_n.jpg",
+           "/home/palm/PycharmProjects/traffy/test.jpg"
+           ]
 
-    for folder in os.listdir(src):
-        for file in os.listdir(os.path.join(src, folder)):
-            image = cv2.imread(os.path.join(src, folder, file))
-            with torch.no_grad():
-                outputs = predictor(image)
-            if len(outputs['instances']._fields['scores']) > 0:
-                mask = outputs['instances']._fields['pred_masks'][0].cpu().numpy().astype('uint8')
-                m = np.where(mask[..., None], (0, 0, 252), image).astype('uint8')
-                image = cv2.addWeighted(image, 0.5, m, 0.5, 0)
-            cv2.imwrite(os.path.join(dst, file), image)
+    for im in ims:
+        image = cv2.imread(im)
+        with torch.no_grad():
+            outputs = predictor(image)
+        if len(outputs['instances']._fields['scores']) > 0:
+            mask = outputs['instances']._fields['pred_masks'][0].cpu().numpy().astype('uint8')
+            m = np.where(mask[..., None], (0, 0, 252), image).astype('uint8')
+            image = cv2.addWeighted(image, 0.5, m, 0.5, 0)
+        cv2.imshow('a', image)
+        cv2.waitKey()
+
+    # for folder in os.listdir(src):
+    #     for file in os.listdir(os.path.join(src, folder)):
+    #         image = cv2.imread(os.path.join(src, folder, file))
+    #         with torch.no_grad():
+    #             outputs = predictor(image)
+    #         if len(outputs['instances']._fields['scores']) > 0:
+    #             mask = outputs['instances']._fields['pred_masks'][0].cpu().numpy().astype('uint8')
+    #             m = np.where(mask[..., None], (0, 0, 252), image).astype('uint8')
+    #             image = cv2.addWeighted(image, 0.5, m, 0.5, 0)
+    #         cv2.imwrite(os.path.join(dst, file), image)

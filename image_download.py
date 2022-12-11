@@ -1,12 +1,15 @@
 import pandas as pd
 import os
-import time
 
 def download(row):
     saved = False
     if 'corrupt' not in row['photo'] and os.path.basename(row['photo']) not in os.listdir(dst):
-        os.system(f'wget {row["photo"]} -P /media/palm/Data/traffy_data/images/ -T 5')
-        saved = True
+        if 'น้ำท่วม' in row['type']:
+            os.system(f'wget {row["photo"]} -P images/flood -T 5')
+            saved = True
+        elif 'ถนน' in row['type']:
+            os.system(f'wget {row["photo"]} -P images/road -T 5')
+            saved = True
     return saved
 
 

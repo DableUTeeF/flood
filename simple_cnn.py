@@ -4,7 +4,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from PIL import Image
 import torch
 from sklearn.metrics import f1_score
-from torchvision import transforms
+from torchvision import transforms, datasets
 import timm
 from tensorflow.keras.utils import Progbar
 from torch.optim.lr_scheduler import MultiStepLR
@@ -18,9 +18,9 @@ dst = '/media/palm/Data/traffy_data/images'
 
 
 class args:
-    outdir = '/media/palm/Data/traffy_data/cp'
-    traindir = '/media/palm/BiggerData/parasites/parasites2/train'
-    valdir = '/media/palm/BiggerData/parasites/parasites2/val'
+    outdir = '/media/palm/BiggerData/walkway/cp'
+    traindir = '/media/palm/BiggerData/walkway/original'
+    valdir = '/media/palm/BiggerData/walkway/original'
     model = 'mobilenetv3_small_075'
     imsize = 224
     batch_size = 64
@@ -78,22 +78,15 @@ if __name__ == '__main__':
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
     transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
+        transforms.Resize(args.imsize),
+        transforms.CenterCrop(args.imsize),
+        # transforms.RandomHorizontalFlip(),
+        # transforms.RandomVerticalFlip(),
         transforms.ToTensor(),
         normalize,
     ])
 
-    dataset = CSVDataSet(
-        'csvs/teamchadchart.csv',
-        transforms.Compose([
-            transforms.Resize(args.imsize),
-            transforms.CenterCrop(args.imsize),
-            # transforms.RandomHorizontalFlip(),
-            # transforms.RandomVerticalFlip(),
-            transforms.ToTensor(),
-            normalize,
-        ]))
+    dataset = datasets.folder.ImageFolder(args.traindir, transform)
     train_dataset, val_dataset = random_split(dataset, [.8, .2], generator=torch.Generator().manual_seed(42))
     trainloader = DataLoader(train_dataset,
                              batch_size=args.batch_size,
@@ -110,7 +103,7 @@ if __name__ == '__main__':
         # sampler=
     )
 
-    model = timm.create_model('mobilenetv3_small_075', pretrained=True, num_classes=len(cats))
+    model = timm.create_model('mobilenetv3_small_075', pretrained=True, num_classes=2)
     model.to(device)
     sgmd = nn.Sigmoid()
     optimizer = torch.optim.SGD(model.parameters(), 0.04,
@@ -118,7 +111,7 @@ if __name__ == '__main__':
                                 weight_decay=1e-4,
                                 )
     scheduler = MultiStepLR(optimizer, [10, 20])
-    criterion = nn.BCELoss().to(device)
+    criterion = nn.CrossEntropyLoss().to(device)
 
     best_acc = 0
     for epoch in range(args.num_epochs):
@@ -128,17 +121,17 @@ if __name__ == '__main__':
         for batch_idx, (inputs, targets) in enumerate(trainloader):
             inputs, targets = inputs.to(device), targets.to(device)
             outputs = model(inputs)
-            loss = criterion(sgmd(outputs), targets)
+            loss = criterion(outputs, targets)
             try:
                 loss.backward()
             except RuntimeError:
                 print(' - error', inputs.size(), targets.size())
                 continue
-            predicted = sgmd(outputs) > 0.5
+            _, predicted = outputs.max(1)
             optimizer.step()
             optimizer.zero_grad()
             suffix = [('loss', loss.item()),
-                      ('acc', predicted.eq(targets).sum().item() / targets.size(0) / len(cats)),
+                      ('acc', predicted.eq(targets).sum().item() / targets.size(0)),
                       ]
             progbar.update(batch_idx + 1, suffix)
         scheduler.step()
@@ -150,10 +143,10 @@ if __name__ == '__main__':
             for batch_idx, (inputs, targets) in enumerate(val_loader):
                 inputs, targets = inputs.to(device), targets.to(device)
                 outputs = model(inputs)
-                loss = criterion(sgmd(outputs), targets)
+                loss = criterion(outputs, targets)
                 test_loss += loss.item()
-                predicted = sgmd(outputs) > 0.5
-                acc = predicted.eq(targets).sum().item() / targets.size(0) / len(cats)
+                _, predicted = outputs.max(1)
+                acc = predicted.eq(targets).sum().item() / targets.size(0)
                 accuracy += acc
                 # f1 = f1_score(gt.float().cpu().numpy(), predicted.float().cpu().numpy(), average='macro')
                 suffix = [('loss', loss.item()),
